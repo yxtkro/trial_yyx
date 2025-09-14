@@ -1,0 +1,20 @@
+{
+  "name": "puppeteer-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for account registration/login with Puppeteer and trial codes",
+  "main": "src/bot.js",
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "start": "node src/bot.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.1.4",
+    "p-queue": "^7.3.0",
+    "puppeteer": "^24.10.2",
+    "sqlite3": "^5.1.6",
+    "telegraf": "^4.12.2",
+    "tesseract.js": "^4.0.2"
+  }
+}
