@@ -1,9 +1,41 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+
 const { PUPPETEER_OPTIONS, LOGIN_SITES } = require('./config');
 const { solveCaptcha } = require('./captchaSolver');
 
-async function delay(ms) {
+function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Helper: Random mouse move inside viewport
+async function randomMouseMove(page, times = 3) {
+  const { width, height } = await page.viewport();
+  for (let i = 0; i < times; i++) {
+    const x = Math.floor(Math.random() * width * 0.9) + 10;
+    const y = Math.floor(Math.random() * height * 0.9) + 10;
+    await page.mouse.move(x, y, { steps: Math.floor(Math.random() * 8) + 3 });
+    await delay(Math.random() * 400 + 100);
+  }
+}
+
+// Helper: Random scroll on the page
+async function randomScroll(page, times = 2) {
+  for (let i = 0; i < times; i++) {
+    const scrollY = Math.floor(Math.random() * 400);
+    await page.evaluate(y => window.scrollBy(0, y), scrollY);
+    await delay(Math.random() * 600 + 200);
+  }
+}
+
+// Helper: Human-like typing (per character, random delay)
+async function humanType(page, selector, text) {
+  await page.focus(selector);
+  for (const char of text) {
+    await page.keyboard.type(char);
+    await delay(Math.random() * 120 + 50); // 50ms to 170ms per char
+  }
 }
 
 async function createBrowser() {
@@ -21,21 +53,27 @@ async function registerAccount(account, siteKey) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
+      await randomScroll(page, 2);
+      await randomMouseMove(page, 4);
+
       try {
         await page.waitForSelector('span[translate="Common_Closed"]', { timeout: 5000 });
+        await randomMouseMove(page, 2);
         await page.click('span[translate="Common_Closed"]');
         await delay(1000);
       } catch {}
 
       await page.waitForSelector(registerSelector, { timeout: 5000 });
+      await randomMouseMove(page, 3);
       await page.click(registerSelector);
       await delay(1500);
 
       await page.waitForSelector('input[ng-model="$ctrl.user.account.value"]', { timeout: 10000 });
 
-      await page.type('input[ng-model="$ctrl.user.account.value"]', account.username);
-      await page.type('input[ng-model="$ctrl.user.password.value"]', account.password);
-      await page.type('input[ng-model="$ctrl.user.confirmPassword.value"]', account.confirmPassword);
+      await randomMouseMove(page, 2);
+      await humanType(page, 'input[ng-model="$ctrl.user.account.value"]', account.username);
+      await humanType(page, 'input[ng-model="$ctrl.user.password.value"]', account.password);
+      await humanType(page, 'input[ng-model="$ctrl.user.confirmPassword.value"]', account.confirmPassword);
       await delay(1000);
 
       const accountExistSelector = 'div[ng-if="isOpen"][ng-bind="title"]';
@@ -48,11 +86,12 @@ async function registerAccount(account, siteKey) {
         }
       } catch {}
 
-      await page.type('input[ng-model="$ctrl.user.name.value"]', account.fullname);
+      await humanType(page, 'input[ng-model="$ctrl.user.name.value"]', account.fullname);
       await delay(1000);
 
       const captchaInputSelector = 'input[ng-model="$ctrl.code"]';
       await page.waitForSelector(captchaInputSelector, { visible: true });
+      await randomMouseMove(page, 2);
       await page.click(captchaInputSelector);
 
       const captchaImgSelector = 'img._3MSK6A03OPsM8LoNU-b9qF';
@@ -60,6 +99,7 @@ async function registerAccount(account, siteKey) {
 
       await solveCaptcha(page, captchaImgSelector, captchaInputSelector);
 
+      await randomMouseMove(page, 2);
       await page.click('button[type="submit"]');
       await delay(5000);
 
@@ -84,13 +124,18 @@ async function tryLoginBMW(account) {
   try {
     await page.goto(url, { waitUntil: 'networkidle2' });
 
+    await randomScroll(page, 2);
+    await randomMouseMove(page, 3);
+
     try {
       await page.waitForSelector('span[translate="Common_Closed"]', { timeout: 5000 });
+      await randomMouseMove(page, 2);
       await page.click('span[translate="Common_Closed"]');
       await delay(1000);
     } catch {}
 
     await page.waitForSelector(loginOpenSelector, { visible: true });
+    await randomMouseMove(page, 3);
     await page.click(loginOpenSelector);
     await delay(1500);
 
@@ -102,15 +147,18 @@ async function tryLoginBMW(account) {
     await page.waitForSelector(passwordSelector, { visible: true });
     await page.waitForSelector(captchaInputSelector, { visible: true });
 
-    await page.type(usernameSelector, account.username);
-    await page.type(passwordSelector, account.password);
+    await randomMouseMove(page, 2);
+    await humanType(page, usernameSelector, account.username);
+    await humanType(page, passwordSelector, account.password);
     await delay(1000);
 
+    await randomMouseMove(page, 2);
     await page.click(captchaInputSelector);
     await delay(1500);
 
     await solveCaptcha(page, captchaImgSelector, captchaInputSelector);
 
+    await randomMouseMove(page, 2);
     await page.click('button[type="submit"]');
     await delay(3000);
 
@@ -131,6 +179,7 @@ async function tryLoginBMW(account) {
 
     const circles = await page.$$(circlesUlSelector + ' li');
     if (circles.length >= 2) {
+      await randomMouseMove(page, 1);
       await circles[1].click();
       await delay(1500);
     }
@@ -146,6 +195,7 @@ async function tryLoginBMW(account) {
     const startButtonSpan = await newPage.$(wheelStartSelector);
     if (!startButtonSpan) throw new Error("Start button span not found");
 
+    await randomMouseMove(newPage, 2);
     const startButton = await startButtonSpan.evaluateHandle(span => span.parentElement);
     await startButton.click();
 
@@ -192,13 +242,18 @@ async function tryLoginNN77N(account) {
   try {
     await page.goto(url, { waitUntil: 'networkidle2' });
 
+    await randomScroll(page, 2);
+    await randomMouseMove(page, 3);
+
     try {
       await page.waitForSelector('span[translate="Common_Closed"]', { timeout: 5000 });
+      await randomMouseMove(page, 2);
       await page.click('span[translate="Common_Closed"]');
       await delay(1000);
     } catch {}
 
     await page.waitForSelector(loginOpenSelector, { visible: true });
+    await randomMouseMove(page, 2);
     await page.click(loginOpenSelector);
     await delay(1500);
 
@@ -210,15 +265,18 @@ async function tryLoginNN77N(account) {
     await page.waitForSelector(passwordSelector, { visible: true });
     await page.waitForSelector(captchaInputSelector, { visible: true });
 
-    await page.type(usernameSelector, account.username);
-    await page.type(passwordSelector, account.password);
+    await randomMouseMove(page, 2);
+    await humanType(page, usernameSelector, account.username);
+    await humanType(page, passwordSelector, account.password);
     await delay(1000);
 
+    await randomMouseMove(page, 2);
     await page.click(captchaInputSelector);
     await delay(1500);
 
     await solveCaptcha(page, captchaImgSelector, captchaInputSelector);
 
+    await randomMouseMove(page, 2);
     await page.click('button[type="submit"]');
     await delay(3000);
 
@@ -239,6 +297,7 @@ async function tryLoginNN77N(account) {
 
     const circles = await page.$$(circlesUlSelector + ' li');
     if (circles.length >= 2) {
+      await randomMouseMove(page, 1);
       await circles[1].click();
       await delay(1500);
     }
@@ -254,6 +313,7 @@ async function tryLoginNN77N(account) {
     const startButtonSpan = await newPage.$(wheelStartSelector);
     if (!startButtonSpan) throw new Error("Start button span not found");
 
+    await randomMouseMove(newPage, 2);
     const startButton = await startButtonSpan.evaluateHandle(span => span.parentElement);
     await startButton.click();
 
