@@ -23,7 +23,7 @@ const { log } = require('./logger');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const userSessions = new Map();
-const heavyTaskQueue = new PQueue({ concurrency: 7 });
+const heavyTaskQueue = new PQueue({ concurrency: 3 });
 
 async function logAction(userId, action, status, message = '') {
   try {
@@ -377,3 +377,4 @@ const { TRIAL_CODES: codesInConfig } = require('./config');
   await bot.launch();
   console.log('Bot started.');
 })();
+
